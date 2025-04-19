@@ -3,12 +3,15 @@ import argparse
 import math
 import numpy as np
 from datetime import datetime, timedelta
-# This function will calculate the daily average, highest and lowest of 3 states of the past (7,30,90) days
+
 def past_n_days_process(df, ref_date_obj, n, num_states):
+    """Calculate daily average cases and top/bottom states for the past n days."""
+
+    # Filter the DataFrame for the past n days from the reference date
     start_date = ref_date_obj - timedelta(days=n-1)  
     df_period = df[(df["date"] >= start_date) & (df["date"] <= ref_date_obj)]
     
-    # a. Daily average cases in Malaysia
+    # a. Daily average new COVID-19 cases in Malaysia; 
     daily_avg_malaysia = math.ceil(df_period["cases_new"].sum() / n)
     
     # b. Top N states by highest daily average cases
@@ -24,7 +27,8 @@ def past_n_days_process(df, ref_date_obj, n, num_states):
     return daily_avg_malaysia, top_states, bottom_states
 
 
-def load_data(ref_date, num_states):
+def process_data(ref_date, num_states):
+    """Read the CSV file, and retrieve/compute the necessary data to display in the text report."""
     try:
         data_url = 'https://raw.githubusercontent.com/MoH-Malaysia/covid19-public/main/epidemic/cases_state.csv'
 
@@ -45,8 +49,11 @@ def load_data(ref_date, num_states):
         df_until_ref = df[df["date"] <= ref_date_obj]
         # Getting the total number of new cases in Malaysia since first day until the reference date (inclusive)
         total_cases_first_to_ref = df_until_ref["cases_new"].sum()
+
+        # For now the number of days is hardcoded to 7, 30, and 90
         days = [7, 30, 90]
         results = {}
+        # Get the df for the past n days
         for n in days:
             results[n] = past_n_days_process(df, ref_date_obj,n, num_states)
 
@@ -132,8 +139,9 @@ def save_report(report_text, filename="covid_report.txt"):
     with open(filename, "w") as file:
         file.write(report_text)
     print(f"Text report saved as {filename}")
+
 if __name__ == "__main__":
-    # read inputs
+    # read user inputs from command line arguments
     parser = argparse.ArgumentParser(description="COVID Cases Analysis Report")
     parser.add_argument('-D', type=str, help='Reference date in YYYY-MM-DD format')
     parser.add_argument('-T', type=int, help='(Optional input) Number of states to include (default: 3)', default=3)
@@ -141,8 +149,11 @@ if __name__ == "__main__":
     args = parser.parse_args()  
     reference_date = ref_date_validation(args.D)
     number_of_states = num_states_validation(args.T)
-    data = load_data(reference_date, number_of_states)
+    data = process_data(reference_date, number_of_states)
     if data:
         html_content = generate_report(data)
+    else:
+        print("Failed to process data. Exiting.")
+        exit(1)
     save_report(html_content, "covid_report.txt")
     
